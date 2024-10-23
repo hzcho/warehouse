@@ -2,36 +2,32 @@ package config
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/vrischmann/envconfig"
 )
 
 type Config struct {
-	PG
-	Server
-	Auth
+	SMPT
+	Consumer
+	URLs
 }
 
-type PG struct {
-	Username string
+type SMPT struct {
 	Host     string
 	Port     string
-	DBName   string
+	OrgEmail string
 	Password string
 }
 
-type Server struct {
-	Port      string
-	ReadTime  time.Duration
-	WriteTime time.Duration
+type Consumer struct {
+	Brokers string   `yaml:"brokers" env-required:"true"`
+	Topics  []string `yaml:"topics" env-required:"true"`
+	GroupId string   `yaml:"group_id" env-required:"true"`
+	Offset  string   `yaml:"offset" env-required:"true"`
 }
 
-type Auth struct {
-	ATDuration     time.Duration
-	RFDuration     time.Duration
-	PrivateKeyPath string
-	PublicKeyPath  string
+type URLs struct {
+	Auth string
 }
 
 func InitConfig(prefix string) (*Config, error) {

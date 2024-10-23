@@ -32,7 +32,7 @@ func NewApp(ctx context.Context, cfg *config.Config, log *logrus.Logger) *App {
 		panic(err)
 	}
 
-	tokenManager, err := token.NewManager(cfg.Auth.ATDuration)
+	tokenManager, err := token.NewManager(cfg.Auth.ATDuration, cfg.Auth.PrivateKeyPath, cfg.Auth.PublicKeyPath)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    environment:
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_PORT=27017
+      - MONGO_HOST=warehouse_db
+      - MONGO_DBNAME=${MONGO_DBNAME}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_READ_TIME=${SERVER_READ_TIME}
+      - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
+      - STORAGE_UPLOAD_DIR=${STORAGE_UPLOAD_DIR}
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    depends_on:
+      - warehouse_db
+
+  warehouse_db:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - ${MONGO_PORT}:${MONGO_PORT}

@@ -8,23 +8,20 @@ import (
 )
 
 type Config struct {
-	PG
 	Server
+	URL
 	Auth
-}
-
-type PG struct {
-	Username string
-	Host     string
-	Port     string
-	DBName   string
-	Password string
 }
 
 type Server struct {
 	Port      string
 	ReadTime  time.Duration
 	WriteTime time.Duration
+}
+
+type URL struct {
+	Auth      string
+	Warehouse string
 }
 
 type Auth struct {

@@ -8,12 +8,19 @@ import (
 )
 
 type Config struct {
-	PG
 	Server
-	Auth
+	Mongo
+	Storage
 }
 
-type PG struct {
+type Server struct {
+	Host      string
+	Port      string
+	ReadTime  time.Duration
+	WriteTime time.Duration
+}
+
+type Mongo struct {
 	Username string
 	Host     string
 	Port     string
@@ -21,17 +28,8 @@ type PG struct {
 	Password string
 }
 
-type Server struct {
-	Port      string
-	ReadTime  time.Duration
-	WriteTime time.Duration
-}
-
-type Auth struct {
-	ATDuration     time.Duration
-	RFDuration     time.Duration
-	PrivateKeyPath string
-	PublicKeyPath  string
+type Storage struct {
+	UploadDir string
 }
 
 func InitConfig(prefix string) (*Config, error) {
