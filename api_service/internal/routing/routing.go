@@ -15,5 +15,12 @@ func InitRoutes(router *gin.Engine, hnds *handler.Handlers) {
 			auth.POST("/signup", hnds.Auth.SignUp)
 			auth.POST("/refresh", hnds.Auth.RefreshToken)
 		}
+		warehouse := api.Group("/products")
+		{
+			warehouse.GET("/:id", hnds.Warehouse.GetById)
+			warehouse.POST("/", hnds.Warehouse.Create)
+			warehouse.PUT("/:id", hnds.Warehouse.Update)
+			warehouse.DELETE("/:id", hnds.Warehouse.Delete)
+		}
 	}
 }

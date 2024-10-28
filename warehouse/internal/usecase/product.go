@@ -9,6 +9,7 @@ import (
 	"warehouse/internal/converter"
 	"warehouse/internal/domain/model"
 	"warehouse/internal/domain/net/request"
+	"warehouse/internal/domain/producer"
 	"warehouse/internal/domain/repository"
 	"warehouse/pkg/generate"
 
@@ -16,11 +17,27 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const (
+	minValueTopic = "min_value"
+	saveOperation = "save_operation"
+)
+
 type Product struct {
+	publisher   producer.Publisher
 	productRepo repository.Product
 	fileStorage repository.FileStorage
 	log         *logrus.Logger
 	baseURL     string
+}
+
+func NewProduct(publisher producer.Publisher, productRepo repository.Product, fileStorage repository.FileStorage, log *logrus.Logger, baseURL string) *Product {
+	return &Product{
+		publisher:   publisher,
+		productRepo: productRepo,
+		fileStorage: fileStorage,
+		log:         log,
+		baseURL:     baseURL,
+	}
 }
 
 func (u *Product) GetById(ctx context.Context, id primitive.ObjectID) (model.Product, error) {
@@ -30,15 +47,6 @@ func (u *Product) GetById(ctx context.Context, id primitive.ObjectID) (model.Pro
 	}
 
 	return product, nil
-}
-
-func NewProduct(productRepo repository.Product, fileStorage repository.FileStorage, log *logrus.Logger, baseURL string) *Product {
-	return &Product{
-		productRepo: productRepo,
-		fileStorage: fileStorage,
-		log:         log,
-		baseURL:     baseURL,
-	}
 }
 
 func (u *Product) Create(ctx context.Context, req request.CreateProduct) (primitive.ObjectID, error) {
@@ -73,7 +81,7 @@ func (u *Product) Create(ctx context.Context, req request.CreateProduct) (primit
 
 func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Product, error) {
 	log := u.log.WithFields(logrus.Fields{
-		"op": "internal/usecase/product/Delete",
+		"op": "internal/usecase/product/Update",
 	})
 
 	product := converter.ProductFromUpdate(req)
@@ -82,6 +90,73 @@ func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Pro
 
 	updatedProduct, err := u.productRepo.Update(ctx, product)
 	if err != nil {
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	if *updatedProduct.StockLevel <= *updatedProduct.MinStockLevel {
+		minValue := model.MinValue{
+			ProductName:   *updatedProduct.Name,
+			StockLevel:    *updatedProduct.StockLevel,
+			MinStockLevel: *updatedProduct.MinStockLevel,
+		}
+		if err := u.publisher.Produce(minValueTopic, minValue); err != nil {
+			log.Error(err)
+			return model.Product{}, err
+		}
+	}
+
+	updatedFields := make(map[string]interface{})
+
+	if req.Name != nil {
+		updatedFields["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updatedFields["description"] = *req.Description
+	}
+	if req.CategoryId != nil {
+		updatedFields["category_id"] = *req.CategoryId
+	}
+	if req.Price != nil {
+		updatedFields["price"] = *req.Price
+	}
+	if req.StockLevel != nil {
+		updatedFields["stock_level"] = *req.StockLevel
+	}
+	if req.MinStockLevel != nil {
+		updatedFields["min_stock_level"] = *req.MinStockLevel
+	}
+	if req.Manufacturer != nil {
+		updatedFields["manufacturer"] = *req.Manufacturer
+	}
+	if req.Supplier != nil {
+		updatedFields["supplier"] = *req.Supplier
+	}
+	if req.Weight != nil {
+		updatedFields["weight"] = *req.Weight
+	}
+	if req.Dimensions != nil {
+		updatedFields["dimensions"] = *req.Dimensions
+	}
+	if req.Tags != nil {
+		updatedFields["tags"] = *req.Tags
+	}
+	if req.ImageURLs != nil {
+		updatedFields["image_urls"] = *req.ImageURLs
+	}
+	if req.IsActive != nil {
+		updatedFields["is_active"] = *req.IsActive
+	}
+
+	operLog := model.OperationLog{
+		UserId:        "popa_enota",
+		ProductId:     updatedProduct.ID.Hex(),
+		OperationType: "update",
+		Timestamp:     time.Now(),
+		UpdatedFields: updatedFields,
+	}
+
+	if err := u.publisher.Produce(saveOperation, operLog); err != nil {
 		log.Error(err)
 		return model.Product{}, err
 	}

@@ -1,5 +1,5 @@
 package model
 
-type GetUserFilter struct {
-	Role string
+type GetUsersFilter struct {
+	Role string `json:"filter"`
 }

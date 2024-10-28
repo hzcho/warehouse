@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: 'confluentinc/cp-zookeeper:7.4.0'
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - '2181:2181'
+    logging:
+      driver: "none"
+
+  kafka:
+    image: 'confluentinc/cp-kafka:7.4.0'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    logging:
+      driver: "none"
+    ports:
+      - '9092:9092'
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "cub", "kafka-ready", "-b", "kafka:9092", "1", "20"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-setup:
+    image: 'confluentinc/cp-kafka:7.4.0'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "cub kafka-ready -b kafka:9092 1 20 && kafka-topics --create --if-not-exists --topic save_operation --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1"]
+
+  audit_db:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - ${MONGO_PORT}:${MONGO_PORT}
+      
+  audit:
+    build: .
+    env_file:
+      - .env.audit.example
+    environment:
+      - CONSUMER_TOPICS=${CONSUMER_TOPICS}
+      - CONSUMER_OFFSET=${CONSUMER_OFFSET}
+      - CONSUMER_GROUP_ID=${CONSUMER_GROUP_ID}
+      - CONSUMER_BROKERS=${CONSUMER_BROKERS}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_PORT=27017
+      - MONGO_HOST=audit_db
+      - MONGO_DBNAME=${MONGO_DBNAME}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_READ_TIME=${SERVER_READ_TIME}
+      - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    depends_on:
+      - audit_db
+      - kafka-setup
+      - kafka

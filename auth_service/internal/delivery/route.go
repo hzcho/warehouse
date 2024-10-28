@@ -15,5 +15,9 @@ func InitRoutes(router *gin.Engine, ctrs *controller.Controllers) {
 			auth.POST("/signin", ctrs.Auth.SignIn)
 			auth.POST("/refresh", ctrs.Auth.RefreshToken)
 		}
+		users := api.Group("/users")
+		{
+			users.GET("", ctrs.User.GetUsers)
+		}
 	}
 }

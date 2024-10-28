@@ -11,6 +11,8 @@ type User struct {
 	Login        string
 	Password     string
 	Role         string
+	PhoneNumber  string
+	Email        string
 	RefreshToken *string
 	TokenExpiry  *time.Time
 }

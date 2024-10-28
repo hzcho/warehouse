@@ -6,5 +6,5 @@ import (
 )
 
 type Auth interface {
-	GetUsers(ctx context.Context, filter model.GetUserFilter) ([]model.User, error)
+	GetUsers(ctx context.Context, filter model.GetUsersFilter) (model.Users, error)
 }

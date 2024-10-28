@@ -28,10 +28,6 @@ services:
     ports:
       - "5436:5432"
     environment:
+      - POSTGRES_USER=${PG_USERNAME}
       - POSTGRES_PASSWORD=${PG_PASSWORD}
-    volumes:
-      - .data/pg:/var/lib/postgresql/data
-        
-volumes:
-  db:
-    driver: local
+      - POSTGRES_DB=${PG_DBNAME}    

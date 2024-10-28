@@ -12,6 +12,6 @@ type Notifiers struct {
 
 func NewNotifiers(cfg *config.Config) *Notifiers {
 	return &Notifiers{
-		Email: notifier.NewEmail(cfg.SMPT),
+		Email: notifier.NewEmail(cfg.SMTP),
 	}
 }

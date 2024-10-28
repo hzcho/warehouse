@@ -36,9 +36,11 @@ func NewAuth(userRepo repository.User, log *logrus.Logger, cfg config.Auth, toke
 
 func (u *Auth) SignUp(ctx context.Context, req request.SignUp) error {
 	log := u.log.WithFields(logrus.Fields{
-		"op":       "internal/usecase/auth/SignUp",
-		"login":    req.Login,
-		"password": req.Password,
+		"op":           "internal/usecase/auth/SignUp",
+		"login":        req.Login,
+		"password":     req.Password,
+		"phone_number": req.PhoneNumber,
+		"email":        req.Email,
 	})
 
 	passHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -52,9 +54,13 @@ func (u *Auth) SignUp(ctx context.Context, req request.SignUp) error {
 		Login:        req.Login,
 		Password:     string(passHash),
 		Role:         "employee",
+		PhoneNumber:  req.PhoneNumber,
+		Email:        req.Email,
 		RefreshToken: nil,
 		TokenExpiry:  nil,
 	}
+
+	log.Info(user)
 
 	_, err = u.userRepo.Create(ctx, user)
 	if err != nil {

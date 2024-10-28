@@ -14,7 +14,7 @@ type Email struct {
 	address string
 }
 
-func NewEmail(cfg config.SMPT) *Email {
+func NewEmail(cfg config.SMTP) *Email {
 	return &Email{
 		from:    cfg.OrgEmail,
 		auth:    smtp.PlainAuth("", cfg.OrgEmail, cfg.Password, cfg.Host),
@@ -24,7 +24,11 @@ func NewEmail(cfg config.SMPT) *Email {
 
 func (n *Email) SendMessage(ctx context.Context, message model.EmailMessage) error {
 	subject := fmt.Sprintf("Subject: %s\n", message.Subject)
-	msg := []byte(subject + message.Body)
+	from := fmt.Sprintf("From: %s\n", n.from)
+	to := fmt.Sprintf("To: %s\n", message.ToEmail[0])
+	contentType := "Content-Type: text/plain; charset=UTF-8\n"
+
+	msg := []byte(from + to + subject + contentType + "\n" + message.Body)
 
 	err := smtp.SendMail(n.address, n.auth, n.from, message.ToEmail, msg)
 	if err != nil {

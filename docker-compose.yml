@@ -11,7 +11,7 @@ services:
       - SERVER_READ_TIME=${SERVER_READ_TIME}
       - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
       - URL_AUTH=http://auth:8080/api/v1
-      - URL_WAREHOUSE=${URL_WAREHOUSE}
+      - URL_WAREHOUSE=http://warehouse:8084/api/v1
       - AUTH_AT_DURATION=${AUTH_AT_DURATION}
       - AUTH_RF_DURATION=${AUTH_RF_DURATION}
       - AUTH_PRIVATE_KEY_PATH=${AUTH_PRIVATE_KEY_PATH}
@@ -32,7 +32,7 @@ services:
       - PG_POOL_MAX=${PG_POOL_MAX}
       - PG_DBNAME=${PG_DBNAME}
       - PG_TIMEOUT=${PG_TIMEOUT}
-      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_PORT=8080
       - SERVER_READ_TIME=${SERVER_READ_TIME}
       - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
       - AUTH_AT_DURATION=${AUTH_AT_DURATION}
@@ -40,7 +40,7 @@ services:
       - AUTH_PRIVATE_KEY_PATH=${AUTH_PRIVATE_KEY_PATH}
       - AUTH_PUBLIC_KEY_PATH=${AUTH_PUBLIC_KEY_PATH}
     ports:
-      - ${SERVER_PORT}:${SERVER_PORT}
+      - 8080:8080
     depends_on:
       - auth_db
 
@@ -50,9 +50,123 @@ services:
       - "5436:5432"
     environment:
       - POSTGRES_PASSWORD=${PG_PASSWORD}
-    volumes:
-      - .data/pg:/var/lib/postgresql/data
-        
-volumes:
-  db:
-    driver: local
+
+  zookeeper:
+    image: 'confluentinc/cp-zookeeper:7.4.0'
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - '2181:2181'
+    logging:
+      driver: "none"
+
+  kafka:
+    image: 'confluentinc/cp-kafka:7.4.0'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    logging:
+      driver: "none"
+    ports:
+      - '9092:9092'
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "cub", "kafka-ready", "-b", "kafka:9092", "1", "20"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-setup:
+    image: 'confluentinc/cp-kafka:7.4.0'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "cub kafka-ready -b kafka:9092 1 20 && kafka-topics --create --if-not-exists --topic min_value --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 && kafka-topics --create --if-not-exists --topic save_operation --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1"]
+
+  notification:
+    build: ./notification_service
+    env_file:
+      - ./notification_service/.env.notification.example
+    environment:
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_ORG_EMAIL=${SMTP_ORG_EMAIL}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - CONSUMER_TOPICS=min_value
+      - CONSUMER_OFFSET=${CONSUMER_OFFSET}
+      - CONSUMER_GROUP_ID=${CONSUMER_GROUP_ID}
+      - CONSUMER_BROKERS=${CONSUMER_BROKERS}
+      - URLS_AUTH=http://auth:8080/api/v1
+    depends_on:
+      - kafka-setup
+
+  warehouse:
+    build: ./warehouse
+    env_file:
+      - ./warehouse/.env.warehouse.example
+    environment:
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_PORT=27017
+      - MONGO_HOST=warehouse_db
+      - MONGO_DBNAME=${MONGO_DBNAME}
+      - SERVER_HOST=localhost
+      - SERVER_PORT=8084
+      - SERVER_READ_TIME=${SERVER_READ_TIME}
+      - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
+      - STORAGE_UPLOAD_DIR=${STORAGE_UPLOAD_DIR}
+    ports:
+      - "8084:8084"
+    depends_on:
+      - warehouse_db
+      - kafka-setup
+
+  warehouse_db:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - ${MONGO_PORT}:${MONGO_PORT}
+    logging:
+      driver: "none"
+
+  audit_db:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - 27018:27017
+      
+  audit:
+    build: ./audit_service
+    env_file:
+      - ./audit_service/.env.audit.example
+    environment:
+      - CONSUMER_TOPICS=save_operation
+      - CONSUMER_OFFSET=${CONSUMER_OFFSET}
+      - CONSUMER_GROUP_ID=${CONSUMER_GROUP_ID}
+      - CONSUMER_BROKERS=${CONSUMER_BROKERS}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_PORT=27017
+      - MONGO_HOST=audit_db
+      - MONGO_DBNAME=${MONGO_DBNAME}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=8085
+      - SERVER_READ_TIME=${SERVER_READ_TIME}
+      - SERVER_WRITE_TIME=${SERVER_WRITE_TIME}
+    ports:
+      - 8085:8085
+    depends_on:
+      - audit_db
+      - kafka-setup
+      - kafka

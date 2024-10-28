@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     refresh_token TEXT,
     token_expire TIMESTAMP, 
     role_id UUID,
+    phone_number VARCHAR(255),
+    email VARCHAR(255),
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL 
 );
 

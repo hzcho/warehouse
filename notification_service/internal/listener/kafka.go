@@ -40,24 +40,26 @@ func (k *KafkaListener) Start(ctx context.Context) {
 	for {
 		select {
 		case <-k.stop:
-			break
+			return
 		default:
 			ms, err := k.consumer.Read()
 			if err != nil {
 				if err.Error() != "Local: Timed out" {
 					k.log.Error(err)
 				}
-
 				continue
 			}
 
-			err = k.topicHandlers[*ms.TopicPartition.Topic](ctx, ms)
-			if err != nil {
-				logrus.Error(err)
-			}
+			go func(ms *kafka.Message) {
+				err := k.topicHandlers[*ms.TopicPartition.Topic](ctx, ms)
+				if err != nil {
+					k.log.Error(err)
+				}
+			}(ms)
 		}
 	}
 }
+
 
 func (k *KafkaListener) Stop() {
 	k.stop <- struct{}{}

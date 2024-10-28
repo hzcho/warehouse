@@ -11,6 +11,8 @@ type User struct {
 	Login        string     `db:"login"`
 	PassHash     string     `db:"pass_hash"`
 	RoleId       uuid.UUID  `db:"role_id"`
+	PhoneNumber  string     `db:"phone_number"`
+	Email        string     `db:"email"`
 	RefreshToken *string    `db:"refresh_token"`
 	TokenExpiry  *time.Time `db:"token_expire"`
 }
@@ -20,6 +22,8 @@ var UserColumns = []string{
 	"login",
 	"pass_hash",
 	"role_id",
+	"phone_number",
+	"email",
 	"refresh_token",
 	"token_expiry",
 }

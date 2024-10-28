@@ -25,33 +25,33 @@ func NewAuth(baseURL string, client *http.Client) *Auth {
 	}
 }
 
-func (s *Auth) GetUsers(ctx context.Context, filter model.GetUserFilter) ([]model.User, error) {
+func (s *Auth) GetUsers(ctx context.Context, filter model.GetUsersFilter) (model.Users, error) {
 	url := s.baseURL + getUsersURL
 	jsonData, err := json.Marshal(filter)
 	if err != nil {
-		return nil, err
+		return model.Users{}, err
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, err
+		return model.Users{}, err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return model.Users{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get users: %s", resp.Status)
+		return model.Users{}, fmt.Errorf("failed to get users: %s", resp.Status)
 	}
 
-	var users []model.User
+	var users model.Users
 	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
-		return nil, err
+		return model.Users{}, err
 	}
 
 	return users, nil

@@ -14,9 +14,10 @@ type App struct {
 	listener *listener.KafkaListener
 }
 
-func NewApp(cfg config.Config, log *logrus.Logger) *App {
+func NewApp(cfg *config.Config, log *logrus.Logger) *App {
 	client := &http.Client{}
-	listener, err := di.InitListener(&cfg, log, client)
+
+	listener, err := di.InitListener(cfg, log, client)
 	if err != nil {
 		panic(err)
 	}

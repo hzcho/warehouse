@@ -21,8 +21,8 @@ func NewWarehouse(emailNotifier notifier.Email, authService service.Auth) *Wareh
 }
 
 func (u *Warehouse) MinValue(ctx context.Context, event model.MinValue) error {
-	filter := model.GetUserFilter{
-		Role: "manager",
+	filter := model.GetUsersFilter{
+		Role: "employee",
 	}
 
 	users, err := u.authService.GetUsers(ctx, filter)
@@ -30,7 +30,7 @@ func (u *Warehouse) MinValue(ctx context.Context, event model.MinValue) error {
 		return err
 	}
 
-	for _, user := range users {
+	for _, user := range users.Users {
 		message := model.EmailMessage{
 			ToEmail: []string{user.Email},
 			Subject: "Уведомление о минимальном лимите",

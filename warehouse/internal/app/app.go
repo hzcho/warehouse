@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"warehouse/internal/config"
 	"warehouse/internal/handler"
+	"warehouse/internal/producer"
 	"warehouse/internal/repository"
 	"warehouse/internal/routing"
 	"warehouse/internal/server"
@@ -34,7 +35,11 @@ func NewApp(ctx context.Context, cfg *config.Config, log *logrus.Logger) *App {
 	}
 	db := client.Database(cfg.Mongo.DBName)
 	repos := repository.NewRepositories(cfg, db, log)
-	usecases := usecase.NewUseCases(cfg, repos, log)
+	producer, err := producer.New(cfg.Producer)
+	if err != nil {
+		panic(err)
+	}
+	usecases := usecase.NewUseCases(cfg, producer, repos, log)
 	handlers := handler.NewHandlers(usecases)
 	router := gin.New()
 

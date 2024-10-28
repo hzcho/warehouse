@@ -7,12 +7,12 @@ import (
 )
 
 type Config struct {
-	SMPT
+	SMTP
 	Consumer
 	URLs
 }
 
-type SMPT struct {
+type SMTP struct {
 	Host     string
 	Port     string
 	OrgEmail string
@@ -20,10 +20,10 @@ type SMPT struct {
 }
 
 type Consumer struct {
-	Brokers string   `yaml:"brokers" env-required:"true"`
-	Topics  []string `yaml:"topics" env-required:"true"`
-	GroupId string   `yaml:"group_id" env-required:"true"`
-	Offset  string   `yaml:"offset" env-required:"true"`
+	Brokers string
+	Topics  []string
+	GroupId string
+	Offset  string
 }
 
 type URLs struct {

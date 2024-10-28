@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	Server
+	Producer
 	Mongo
 	Storage
 }
@@ -18,6 +19,12 @@ type Server struct {
 	Port      string
 	ReadTime  time.Duration
 	WriteTime time.Duration
+}
+
+type Producer struct {
+	Servers  string
+	Protocol string
+	Acks     string
 }
 
 type Mongo struct {
