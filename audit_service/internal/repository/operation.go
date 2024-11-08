@@ -55,12 +55,10 @@ func (r *Operation) GetAll(ctx context.Context, filter request.GetAllFilter) ([]
 	}
 
 	opts := options.Find()
-	if filter.Page != nil && filter.Limit != nil {
-		skip := int64(*filter.Page * *filter.Limit)
-		limit := int64(*filter.Limit)
-		opts.SetSkip(skip)
-		opts.SetLimit(limit)
-	}
+	skip := int64(filter.Page * filter.Limit)
+	limit := int64(filter.Limit)
+	opts.SetSkip(skip)
+	opts.SetLimit(limit)
 
 	cursor, err := r.c.Find(ctx, mongoFilter, opts)
 	if err != nil {

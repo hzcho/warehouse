@@ -3,6 +3,7 @@ package usecase
 import (
 	"audit/internal/domain/model"
 	"audit/internal/domain/net/request"
+	"audit/internal/domain/net/response"
 	"audit/internal/domain/repository"
 	"context"
 	"fmt"
@@ -38,19 +39,30 @@ func (u *Operation) GetById(ctx context.Context, id primitive.ObjectID) (model.O
 	return operLog, nil
 }
 
-func (u *Operation) GetAll(ctx context.Context, filter request.GetAllFilter) ([]model.OperationLog, error) {
+func (u *Operation) GetAll(ctx context.Context, filter request.GetAllFilter) (response.GetAllResponse, error) {
 	log := u.log.WithFields(logrus.Fields{
 		"op": "internal/usecase/operation/GetAll",
 	})
 	log.Info(fmt.Sprintf("%v %v %v %v %v", filter.UserId, filter.ProductId, filter.OperationType, filter.Limit, filter.Page))
 
+	if filter.Page < 0 {
+		filter.Page = 0
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 10
+	}
+
 	operLogs, err := u.operationRepo.GetAll(ctx, filter)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return response.GetAllResponse{}, err
 	}
 
-	return operLogs, nil
+	return response.GetAllResponse{
+		Page:  filter.Page,
+		Limit: filter.Limit,
+		Logs:  operLogs,
+	}, nil
 }
 
 func (u *Operation) Save(ctx context.Context, log model.OperationLog) (primitive.ObjectID, error) {

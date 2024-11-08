@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"auth/internal/config"
+	"auth/internal/custom_errors"
 	"auth/internal/domain/model"
 	"auth/internal/domain/net/request"
 	"auth/internal/domain/net/response"
@@ -10,8 +11,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -79,13 +78,15 @@ func (u *Auth) SignIn(ctx context.Context, req request.SignIn) (response.Token, 
 	})
 
 	user, err := u.userRepo.Get(ctx, req.Login)
+	log.Infof("user %v", user)
 	if err != nil {
+		err = custom_errors.UserNotExist
 		log.Error(err.Error())
+
 		return response.Token{}, err
 	}
 	if user == (model.User{}) {
-		err := errors.New("the user does not exist")
-
+		err = custom_errors.UserNotExist
 		log.Error(err.Error())
 
 		return response.Token{}, err
@@ -144,8 +145,6 @@ func (u *Auth) RefreshToken(ctx context.Context, tkn request.RefreshToken) (resp
 		log.Error(err)
 		return response.Token{}, err
 	}
-
-	log.Infof("sisisisisis %s %v %s", user.Login, user.RefreshToken, user.Role)
 
 	if user.TokenExpiry == nil {
 		err := fmt.Errorf("refresh token is empty")

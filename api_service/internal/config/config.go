@@ -22,6 +22,7 @@ type Server struct {
 type URL struct {
 	Auth      string
 	Warehouse string
+	Audit     string
 }
 
 type Auth struct {

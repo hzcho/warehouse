@@ -9,7 +9,7 @@ import (
 type CreateProduct struct {
 	Name          string                  `json:"name" form:"name" bson:"name"`
 	Description   string                  `json:"description" form:"description" bson:"description"`
-	CategoryName  string                  `json:"category_id" form:"category_id" bson:"category_id"`
+	CategoryName  string                  `json:"category_name" form:"category_name" bson:"category_name"`
 	Price         float64                 `json:"price" form:"price" bson:"price"`
 	StockLevel    int                     `json:"stock_level" form:"stock_level" bson:"stock_level"`
 	MinStockLevel int                     `json:"min_stock_level" form:"min_stock_level" bson:"min_stock_level"`
@@ -25,7 +25,7 @@ type UpdateUser struct {
 	ID            *primitive.ObjectID      `bson:"_id"`
 	Name          *string                  `json:"name" form:"name" bson:"name"`
 	Description   *string                  `json:"description" form:"description" bson:"description"`
-	CategoryId    *string                  `json:"category_id" form:"category_id" bson:"category_id"`
+	CategoryName  *string                  `json:"category_name" form:"category_name" bson:"category_name"`
 	Price         *float64                 `json:"price" form:"price" bson:"price"`
 	StockLevel    *int                     `json:"stock_level" form:"stock_level" bson:"stock_level"`
 	MinStockLevel *int                     `json:"min_stock_level" form:"min_stock_level" bson:"min_stock_level"`
@@ -43,4 +43,15 @@ type Dimensions struct {
 	Length float64 `json:"length" form:"length" bson:"length"`
 	Width  float64 `json:"width" form:"width" bson:"width"`
 	Height float64 `json:"height" form:"height" bson:"height"`
+}
+
+type GetAllFilter struct {
+	ProductName *string `json:"product_name"`
+	Page        *int    `json:"page"`
+	Limit       *int    `json:"limit"`
+}
+
+type UpdateStockLevel struct {
+	Id         string `json:"id"`
+	StockLevel int    `json:"stock_level"`
 }

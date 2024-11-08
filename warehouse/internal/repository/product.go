@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"warehouse/internal/domain/model"
+	"warehouse/internal/domain/net/request"
 
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,6 +29,43 @@ func NewProduct(db *mongo.Database, log *logrus.Logger) *Product {
 		c:   db.Collection(productsCollection),
 		log: log,
 	}
+}
+
+func (r *Product) GetAll(ctx context.Context, filter request.GetAllFilter) ([]model.Product, error) {
+	var products []model.Product
+	mongoFilter := bson.M{}
+
+	if filter.ProductName != nil {
+		mongoFilter["name"] = *filter.ProductName
+	}
+
+	opts := options.Find()
+	if filter.Page != nil && filter.Limit != nil {
+		skip := int64(*filter.Page * *filter.Limit)
+		limit := int64(*filter.Limit)
+		opts.SetSkip(skip)
+		opts.SetLimit(limit)
+	}
+
+	cursor, err := r.c.Find(ctx, mongoFilter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var operLog model.Product
+		if err := cursor.Decode(&operLog); err != nil {
+			return nil, err
+		}
+		products = append(products, operLog)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return products, nil
 }
 
 func (r *Product) GetById(ctx context.Context, id primitive.ObjectID) (model.Product, error) {
@@ -68,8 +106,8 @@ func (r *Product) Update(ctx context.Context, product model.Product) (model.Prod
 	if product.Description != nil {
 		update = append(update, bson.E{Key: "description", Value: product.Description})
 	}
-	if product.CategoryID != nil {
-		update = append(update, bson.E{Key: "category_id", Value: product.CategoryID})
+	if product.CategoryName != nil {
+		update = append(update, bson.E{Key: "category_name", Value: product.CategoryName})
 	}
 	if product.Price != nil {
 		update = append(update, bson.E{Key: "price", Value: product.Price})

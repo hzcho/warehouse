@@ -11,11 +11,13 @@ import (
 type Repositories struct {
 	repository.Product
 	repository.FileStorage
+	repository.Category
 }
 
 func NewRepositories(cfg *config.Config, db *mongo.Database, log *logrus.Logger) *Repositories {
 	return &Repositories{
 		Product:     NewProduct(db, log),
 		FileStorage: NewFileStorage(cfg.UploadDir),
+		Category:    NewCategory(db),
 	}
 }

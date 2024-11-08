@@ -43,12 +43,14 @@ func (h *Operation) GetById(c *gin.Context) {
 func (h *Operation) GetAll(c *gin.Context) {
 	var filter request.GetAllFilter
 
-	if err := c.ShouldBind(filter); err != nil {
+	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, "bad request")
+		return
 	}
 
 	operation, err := h.operUseCase.GetAll(c, filter)
 	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
 

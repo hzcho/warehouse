@@ -6,6 +6,8 @@ import (
 	"api_service/internal/routing"
 	"api_service/internal/server"
 	"api_service/internal/service"
+	"api_service/internal/usecase"
+	"api_service/pkg/token"
 	"context"
 	"net/http"
 
@@ -18,13 +20,15 @@ type App struct {
 }
 
 func NewApp(ctx context.Context, cfg *config.Config, log *logrus.Logger) *App {
-	// tokenManager, err := token.NewManager(cfg.Auth.ATDuration, cfg.Auth.PrivateKeyPath, cfg.Auth.PublicKeyPath)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	tokenManager, err := token.NewManager(cfg.Auth.ATDuration, cfg.Auth.PrivateKeyPath, cfg.Auth.PublicKeyPath)
+	if err != nil {
+		panic(err)
+	}
+	usecases := usecase.NewUsecases(log, cfg, tokenManager)
+
 	client := http.Client{}
 	services := service.NewServices(cfg.URL, &client, log)
-	handlers := handler.NewHandlers(services)
+	handlers := handler.NewHandlers(services, usecases)
 	router := gin.New()
 
 	routing.InitRoutes(router, handlers)

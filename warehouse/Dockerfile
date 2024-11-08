@@ -16,6 +16,8 @@ WORKDIR /app
 
 RUN apk add --no-cache libc6-compat  # Убедитесь, что библиотеки libc установлены
 
+COPY ./private_key.pem ./private_key.pem
+COPY ./public_key.pem ./public_key.pem
 COPY --from=builder /app/cmd/app/main .
 
 ENTRYPOINT ["./main"]

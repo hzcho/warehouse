@@ -10,7 +10,7 @@ type Product struct {
 	ID            *primitive.ObjectID `json:"id" bson:"_id"`
 	Name          *string             `json:"name" bson:"name"`
 	Description   *string             `json:"description" bson:"description"`
-	CategoryID    *string             `json:"category_id" bson:"category_id"` // Ссылка на категорию
+	CategoryName  *string             `json:"category_name" bson:"category_name"` // Ссылка на категорию
 	Price         *float64            `json:"price" bson:"price"`
 	StockLevel    *int                `json:"stock_level" bson:"stock_level"`         // Текущий уровень запасов
 	MinStockLevel *int                `json:"min_stock_level" bson:"min_stock_level"` // Минимальный уровень запасов

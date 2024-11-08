@@ -10,7 +10,7 @@ func ProductFromCreate(createProduct request.CreateProduct) model.Product {
 		ID:            nil,
 		Name:          &createProduct.Name,
 		Description:   &createProduct.Description,
-		CategoryID:    &createProduct.CategoryName,
+		CategoryName:  &createProduct.CategoryName,
 		Price:         &createProduct.Price,
 		StockLevel:    &createProduct.StockLevel,
 		MinStockLevel: &createProduct.MinStockLevel,
@@ -30,12 +30,12 @@ func ProductFromCreate(createProduct request.CreateProduct) model.Product {
 	}
 }
 
-func ProductFromUpdate(updateUser request.UpdateUser) model.Product {
+func ProductFromUpdate(updateUser request.UpdateProduct) model.Product {
 	return model.Product{
 		ID:            updateUser.ID,
 		Name:          updateUser.Name,
 		Description:   updateUser.Description,
-		CategoryID:    updateUser.CategoryId,
+		CategoryName:  updateUser.CategoryName,
 		Price:         updateUser.Price,
 		StockLevel:    updateUser.StockLevel,
 		MinStockLevel: updateUser.MinStockLevel,

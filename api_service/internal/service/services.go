@@ -10,12 +10,16 @@ import (
 
 type Services struct {
 	service.Auth
-	service.Warehouse
+	service.Product
+	service.Audit
+	service.Category
 }
 
 func NewServices(urls config.URL, client *http.Client, log *logrus.Logger) *Services {
 	return &Services{
-		Auth:      NewAuth(urls.Auth, client, log),
-		Warehouse: NewWarehouse(urls.Warehouse, client, log),
+		Auth:     NewAuth(urls.Auth, client, log),
+		Product:  NewProduct(urls.Warehouse, client, log),
+		Audit:    NewAudit(urls.Audit, client, log),
+		Category: NewCategory(urls.Warehouse, client, log),
 	}
 }

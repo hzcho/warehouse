@@ -2,16 +2,20 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"time"
 	"warehouse/internal/converter"
+	"warehouse/internal/custom_errors.go"
 	"warehouse/internal/domain/model"
 	"warehouse/internal/domain/net/request"
+	"warehouse/internal/domain/net/response"
 	"warehouse/internal/domain/producer"
 	"warehouse/internal/domain/repository"
 	"warehouse/pkg/generate"
+	"warehouse/pkg/token"
 
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,24 +27,65 @@ const (
 )
 
 type Product struct {
-	publisher   producer.Publisher
-	productRepo repository.Product
-	fileStorage repository.FileStorage
-	log         *logrus.Logger
-	baseURL     string
+	publisher    producer.Publisher
+	productRepo  repository.Product
+	categoryRepo repository.Category
+	fileStorage  repository.FileStorage
+	log          *logrus.Logger
+	baseURL      string
 }
 
-func NewProduct(publisher producer.Publisher, productRepo repository.Product, fileStorage repository.FileStorage, log *logrus.Logger, baseURL string) *Product {
+func NewProduct(
+	publisher producer.Publisher,
+	productRepo repository.Product,
+	categoryRepo repository.Category,
+	fileStorage repository.FileStorage,
+	log *logrus.Logger,
+	baseURL string,
+) *Product {
 	return &Product{
-		publisher:   publisher,
-		productRepo: productRepo,
-		fileStorage: fileStorage,
-		log:         log,
-		baseURL:     baseURL,
+		publisher:    publisher,
+		productRepo:  productRepo,
+		categoryRepo: categoryRepo,
+		fileStorage:  fileStorage,
+		log:          log,
+		baseURL:      baseURL,
 	}
 }
 
-func (u *Product) GetById(ctx context.Context, id primitive.ObjectID) (model.Product, error) {
+func (u *Product) GetAll(ctx context.Context, claims token.AuthInfo, filter request.GetAllFilter) (response.Products, error) {
+	log := u.log.WithFields(logrus.Fields{
+		"op": "internal/usecase/product/GetAll",
+	})
+
+	if filter.Limit == nil || *filter.Limit <= 0 {
+		defaultLimit := 10
+		filter.Limit = &defaultLimit
+	}
+
+	if filter.Page == nil || *filter.Page < 0 {
+		defaultPage := 0
+		filter.Page = &defaultPage
+	}
+
+	if filter.ProductName != nil && *filter.ProductName == "" {
+		filter.ProductName = nil
+	}
+
+	products, err := u.productRepo.GetAll(ctx, filter)
+	if err != nil {
+		log.Error(err)
+		return response.Products{}, err
+	}
+
+	return response.Products{
+		Page:     *filter.Page,
+		Limit:    *filter.Limit,
+		Products: products,
+	}, nil
+}
+
+func (u *Product) GetById(ctx context.Context, claims token.AuthInfo, id primitive.ObjectID) (model.Product, error) {
 	product, err := u.productRepo.GetById(ctx, id)
 	if err != nil {
 		return model.Product{}, err
@@ -49,10 +94,26 @@ func (u *Product) GetById(ctx context.Context, id primitive.ObjectID) (model.Pro
 	return product, nil
 }
 
-func (u *Product) Create(ctx context.Context, req request.CreateProduct) (primitive.ObjectID, error) {
+func (u *Product) Create(ctx context.Context, claims token.AuthInfo, req request.CreateProduct) (primitive.ObjectID, error) {
 	log := u.log.WithFields(logrus.Fields{
-		"op": "internal/usecase/product/Create",
+		"op":    "internal/usecase/product/Create",
+		"login": claims.Login,
+		"role":  claims.Role,
 	})
+
+	if claims.Role != "admin" && claims.Role != "manager" {
+		err := errors.New("insufficient level of rights")
+		log.Error(err)
+		return primitive.NilObjectID, err
+	}
+
+	category, err := u.categoryRepo.GetByName(ctx, req.CategoryName)
+	if err != nil {
+		return primitive.NilObjectID, err
+	}
+	if category == (model.Category{}) {
+		return primitive.NilObjectID, custom_errors.CategoryNotExist
+	}
 
 	imageURLs, err := u.saveImages(ctx, req.Images)
 	if err != nil {
@@ -76,13 +137,41 @@ func (u *Product) Create(ctx context.Context, req request.CreateProduct) (primit
 		return primitive.NilObjectID, err
 	}
 
+	operLog := model.OperationLog{
+		UserId:        claims.UserID,
+		ProductId:     id.Hex(),
+		OperationType: "create",
+		Timestamp:     time.Now(),
+	}
+
+	if err := u.publisher.Produce(saveOperation, operLog); err != nil {
+		log.Error(err)
+		return primitive.NilObjectID, err
+	}
+
 	return id, nil
 }
 
-func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Product, error) {
+func (u *Product) Update(ctx context.Context, claims token.AuthInfo, req request.UpdateProduct) (model.Product, error) {
 	log := u.log.WithFields(logrus.Fields{
 		"op": "internal/usecase/product/Update",
 	})
+
+	if claims.Role != "admin" && claims.Role != "manager" {
+		err := errors.New("insufficient level of rights")
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	if req.CategoryName != nil {
+		category, err := u.categoryRepo.GetByName(ctx, *req.CategoryName)
+		if err != nil {
+			return model.Product{}, err
+		}
+		if category == (model.Category{}) {
+			return model.Product{}, custom_errors.CategoryNotExist
+		}
+	}
 
 	product := converter.ProductFromUpdate(req)
 	now := time.Now()
@@ -114,8 +203,8 @@ func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Pro
 	if req.Description != nil {
 		updatedFields["description"] = *req.Description
 	}
-	if req.CategoryId != nil {
-		updatedFields["category_id"] = *req.CategoryId
+	if req.CategoryName != nil {
+		updatedFields["category_name"] = *req.CategoryName
 	}
 	if req.Price != nil {
 		updatedFields["price"] = *req.Price
@@ -149,7 +238,7 @@ func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Pro
 	}
 
 	operLog := model.OperationLog{
-		UserId:        "popa_enota",
+		UserId:        claims.UserID,
 		ProductId:     updatedProduct.ID.Hex(),
 		OperationType: "update",
 		Timestamp:     time.Now(),
@@ -164,12 +253,73 @@ func (u *Product) Update(ctx context.Context, req request.UpdateUser) (model.Pro
 	return updatedProduct, nil
 }
 
-func (u *Product) Delete(ctx context.Context, id primitive.ObjectID) (primitive.ObjectID, error) {
+func (u *Product) UpdateCount(ctx context.Context, claims token.AuthInfo, req request.UpdateStockLevel) (model.Product, error) {
+	log := u.log.WithFields(logrus.Fields{
+		"op": "internal/usecase/product/UpdateCount",
+	})
+	product, err := u.productRepo.GetById(ctx, req.Id)
+	if err != nil {
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	if product.StockLevel == nil || *product.StockLevel+req.StockLevel < 0 {
+		err = errors.New("There is not enough quantity of goods")
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	*product.StockLevel += req.StockLevel
+
+	updatedProduct, err := u.productRepo.Update(ctx, product)
+	if err != nil {
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	operLog := model.OperationLog{
+		UserId:        claims.UserID,
+		ProductId:     updatedProduct.ID.Hex(),
+		OperationType: "update",
+		Timestamp:     time.Now(),
+		UpdatedFields: map[string]interface{}{
+			"stock_level": product,
+		},
+	}
+
+	if err := u.publisher.Produce(saveOperation, operLog); err != nil {
+		log.Error(err)
+		return model.Product{}, err
+	}
+
+	return updatedProduct, nil
+}
+
+func (u *Product) Delete(ctx context.Context, claims token.AuthInfo, id primitive.ObjectID) (primitive.ObjectID, error) {
 	log := u.log.WithFields(logrus.Fields{
 		"op": "internal/usecase/product/Delete",
 	})
+
+	if claims.Role != "admin" && claims.Role != "manager" {
+		err := errors.New("insufficient level of rights")
+		log.Error(err)
+		return primitive.NilObjectID, err
+	}
+
 	id, err := u.productRepo.Delete(ctx, id)
 	if err != nil {
+		log.Error(err)
+		return primitive.NilObjectID, err
+	}
+
+	operLog := model.OperationLog{
+		UserId:        claims.UserID,
+		ProductId:     id.Hex(),
+		OperationType: "delete",
+		Timestamp:     time.Now(),
+	}
+
+	if err := u.publisher.Produce(saveOperation, operLog); err != nil {
 		log.Error(err)
 		return primitive.NilObjectID, err
 	}

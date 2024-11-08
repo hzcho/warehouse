@@ -10,6 +10,7 @@ import (
 	"warehouse/internal/routing"
 	"warehouse/internal/server"
 	"warehouse/internal/usecase"
+	"warehouse/pkg/token"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -39,7 +40,11 @@ func NewApp(ctx context.Context, cfg *config.Config, log *logrus.Logger) *App {
 	if err != nil {
 		panic(err)
 	}
-	usecases := usecase.NewUseCases(cfg, producer, repos, log)
+	tokenManager, err := token.NewManager(cfg.Auth.ATDuration, cfg.Auth.PrivateKeyPath, cfg.Auth.PublicKeyPath)
+	if err != nil {
+		panic(err)
+	}
+	usecases := usecase.NewUseCases(cfg, producer, repos, log, tokenManager)
 	handlers := handler.NewHandlers(usecases)
 	router := gin.New()
 

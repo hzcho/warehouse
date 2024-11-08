@@ -3,8 +3,11 @@ package handler
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"warehouse/internal/domain/net/request"
 	"warehouse/internal/domain/usecase"
+
+	"warehouse/pkg/token"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,7 +23,60 @@ func NewProduct(productUseCase usecase.Product) *Product {
 	}
 }
 
+func (h *Product) GetAll(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token claims"})
+		return
+	}
+
+	var filter request.GetAllFilter
+
+	if productName := c.Query("product_name"); productName != "" {
+		filter.ProductName = &productName
+	}
+
+	if page := c.Query("page"); page != "" {
+		pageInt, err := strconv.Atoi(page)
+		if err == nil {
+			filter.Page = &pageInt
+		}
+	}
+
+	if limit := c.Query("limit"); limit != "" {
+		limitInt, err := strconv.Atoi(limit)
+		if err == nil {
+			filter.Limit = &limitInt
+		}
+	}
+
+	products, err := h.productUseCase.GetAll(c, claims, filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get products"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"products": products})
+}
+
 func (h *Product) GetById(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token isn't string"})
+		return
+	}
+
 	stringId := c.Param("id")
 	if stringId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -33,7 +89,7 @@ func (h *Product) GetById(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productUseCase.GetById(c, id)
+	product, err := h.productUseCase.GetById(c, claims, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product"})
 		return
@@ -43,6 +99,17 @@ func (h *Product) GetById(c *gin.Context) {
 }
 
 func (h *Product) Create(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token isn't string"})
+		return
+	}
+
 	var req request.CreateProduct
 
 	if err := c.ShouldBind(&req); err != nil {
@@ -53,11 +120,6 @@ func (h *Product) Create(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form"})
-		return
-	}
-
-	if form.File["images"] == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No images uploaded"})
 		return
 	}
 
@@ -76,7 +138,7 @@ func (h *Product) Create(c *gin.Context) {
 
 	req.Images = images
 
-	productID, err := h.productUseCase.Create(c, req)
+	productID, err := h.productUseCase.Create(c, claims, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
 		return
@@ -86,6 +148,17 @@ func (h *Product) Create(c *gin.Context) {
 }
 
 func (h *Product) Update(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token isn't string"})
+		return
+	}
+
 	stringId := c.Param("id")
 	if stringId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -98,7 +171,7 @@ func (h *Product) Update(c *gin.Context) {
 		return
 	}
 
-	var req request.UpdateUser
+	var req request.UpdateProduct
 	req.ID = &id
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -126,16 +199,27 @@ func (h *Product) Update(c *gin.Context) {
 
 	req.Images = &images
 
-	productID, err := h.productUseCase.Update(c, req)
+	updatedProduct, err := h.productUseCase.Update(c, claims, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"product_id": productID})
+	c.JSON(http.StatusOK, gin.H{"product": updatedProduct})
 }
 
-func (h *Product) Delete(c *gin.Context) {
+func (h *Product) UpdateStockLevel(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token isn't string"})
+		return
+	}
+
 	stringId := c.Param("id")
 	if stringId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -148,7 +232,47 @@ func (h *Product) Delete(c *gin.Context) {
 		return
 	}
 
-	deletedId, err := h.productUseCase.Delete(c, id)
+	var req request.UpdateStockLevel
+	req.Id = id
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	updatedProduct, err := h.productUseCase.UpdateCount(c, claims, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"product": updatedProduct})
+}
+
+func (h *Product) Delete(c *gin.Context) {
+	tknClaims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty claims"})
+		return
+	}
+	claims, ok := tknClaims.(token.AuthInfo)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token isn't string"})
+		return
+	}
+
+	stringId := c.Param("id")
+	if stringId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	id, err := primitive.ObjectIDFromHex(stringId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	deletedId, err := h.productUseCase.Delete(c, claims, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
 		return

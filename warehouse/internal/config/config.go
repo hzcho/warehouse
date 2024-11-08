@@ -12,6 +12,7 @@ type Config struct {
 	Producer
 	Mongo
 	Storage
+	Auth
 }
 
 type Server struct {
@@ -33,6 +34,13 @@ type Mongo struct {
 	Port     string
 	DBName   string
 	Password string
+}
+
+type Auth struct {
+	ATDuration     time.Duration
+	RFDuration     time.Duration
+	PrivateKeyPath string
+	PublicKeyPath  string
 }
 
 type Storage struct {

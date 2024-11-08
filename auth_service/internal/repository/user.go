@@ -1,16 +1,20 @@
 package repository
 
 import (
+	"auth/internal/custom_errors"
 	"auth/internal/domain/model"
 	"auth/internal/domain/net/request"
 	"auth/internal/repository/converter"
 	"auth/internal/repository/dao"
+	"errors"
 	"fmt"
 	"strings"
 
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -84,24 +88,24 @@ func (r *User) Get(ctx context.Context, login string) (model.User, error) {
 	defer conn.Release()
 
 	var daoUser dao.User
-	userQuery :=
-		`SELECT id, login, pass_hash, role_id, phone_number, email, refresh_token, token_expire 
-        FROM users 
-        WHERE login = $1`
+	userQuery := `SELECT id, login, pass_hash, role_id, phone_number, email, refresh_token, token_expire FROM users WHERE login = $1`
 
 	row := conn.QueryRow(ctx, userQuery, login)
 	if err := row.Scan(&daoUser.ID, &daoUser.Login, &daoUser.PassHash, &daoUser.RoleId, &daoUser.PhoneNumber, &daoUser.Email, &daoUser.RefreshToken, &daoUser.TokenExpiry); err != nil {
+		if err == pgx.ErrNoRows {
+			return model.User{}, custom_errors.UserNotExist
+		}
 		return model.User{}, err
 	}
 
 	var daoRole dao.Role
-	roleQuery :=
-		`SELECT id, role_name 
-        FROM roles 
-        WHERE id = $1`
+	roleQuery := `SELECT id, role_name FROM roles WHERE id = $1`
 
 	roleRow := conn.QueryRow(ctx, roleQuery, daoUser.RoleId)
 	if err := roleRow.Scan(&daoRole.ID, &daoRole.Role); err != nil {
+		if err == pgx.ErrNoRows {
+			return model.User{}, errors.New("role not found for the user")
+		}
 		return model.User{}, err
 	}
 
@@ -136,13 +140,15 @@ func (r *User) Create(ctx context.Context, user model.User) (uuid.UUID, error) {
 	}
 
 	var insertedID string
-	query :=
-		`INSERT INTO users (id, login, pass_hash, role_id, phone_number, email) 
-        VALUES ($1, $2, $3, $4, $5, $6) 
-        RETURNING id`
+	query := `INSERT INTO users (id, login, pass_hash, role_id, phone_number, email) 
+	          VALUES ($1, $2, $3, $4, $5, $6) 
+	          RETURNING id`
 
 	err = tx.QueryRow(ctx, query, userID.String(), user.Login, user.Password, roleID, user.PhoneNumber, user.Email).Scan(&insertedID)
 	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return uuid.Nil, custom_errors.AlreadyExist
+		}
 		return uuid.Nil, err
 	}
 

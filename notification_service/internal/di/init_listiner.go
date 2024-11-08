@@ -11,7 +11,7 @@ import (
 func InitListener(cfg *config.Config, log *logrus.Logger, client *http.Client) (*listener.KafkaListener, error) {
 	notifiers := NewNotifiers(cfg)
 	services := NewServices(cfg.URLs.Auth, client)
-	usecases := NewUsecases(notifiers, services)
+	usecases := NewUsecases(notifiers, services, log)
 	handlers := NewHandlers(usecases)
 	consumers, err := NewConsumers(cfg)
 	if err != nil {

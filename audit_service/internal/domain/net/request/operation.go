@@ -3,10 +3,10 @@ package request
 import "time"
 
 type GetAllFilter struct {
-	UserId        *string    `json:"user_id"`
-	ProductId     *string    `json:"product_id"`
-	OperationType *string    `josn:"operation_type"`
-	Timestamp     *time.Time `json:"timestamp"`
-	Page          *int       `json:"page"`
-	Limit         *int       `json:"limit"`
+	UserId        *string    `form:"user_id"`
+	ProductId     *string    `form:"product_id"`
+	OperationType *string    `form:"operation_type"`
+	Timestamp     *time.Time `form:"timestamp"`
+	Page          int        `form:"page"`
+	Limit         int        `form:"limit"`
 }

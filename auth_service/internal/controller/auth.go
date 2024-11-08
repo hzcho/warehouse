@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"auth/internal/custom_errors"
 	"auth/internal/domain/net/request"
 	"auth/internal/domain/usecase"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type Auth struct {
@@ -27,6 +29,10 @@ func (c *Auth) SignUp(ctx *gin.Context) {
 	}
 
 	if err := c.authUseCase.SignUp(ctx, req); err != nil {
+		if errors.Is(err, custom_errors.AlreadyExist) {
+			ctx.AbortWithStatusJSON(http.StatusConflict, "the user is already registered")
+			return
+		}
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "Has something happened")
 		return
 	}
@@ -44,6 +50,10 @@ func (c *Auth) SignIn(ctx *gin.Context) {
 
 	tokens, err := c.authUseCase.SignIn(ctx, req)
 	if err != nil {
+		if errors.Is(err, custom_errors.UserNotExist) {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, "user does not exist")
+			return
+		}
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "Has something happened")
 		return
 	}

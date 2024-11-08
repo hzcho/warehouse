@@ -1,0 +1,9 @@
+version: '3'
+
+tasks:
+  mock:
+    cmds:
+      - go run github.com/vektra/mockery/v2@latest --name=Product --dir=./internal/domain/repository/ --output=./internal/domain/repository/mock
+      - go run github.com/vektra/mockery/v2@latest --name=Category --dir=./internal/domain/repository/ --output=./internal/domain/repository/mock
+      - go run github.com/vektra/mockery/v2@latest --name=FileStorage --dir=./internal/domain/repository/ --output=./internal/domain/repository/mock
+      - go run github.com/vektra/mockery/v2@latest --name=Publisher --dir=./internal/domain/producer/ --output=./internal/domain/producer/mock
